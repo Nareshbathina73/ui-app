@@ -1,0 +1,34 @@
+# Build the client (React) app
+FROM node:14 as client-builder
+
+WORKDIR /app/client
+COPY ./client/package*.json ./
+RUN npm ci --legacy-peer-deps
+COPY ./client ./
+RUN npm run build
+
+# Build the server (Express) app
+FROM node:14 as server-builder
+
+WORKDIR /app/server
+COPY ./server/package*.json ./
+RUN npm ci --legacy-peer-deps
+COPY ./server ./
+
+# Use a lightweight Node.js image as the base image for the production environment
+FROM node:14-alpine
+
+WORKDIR /app
+
+# Copy the client build output to the server's public directory
+COPY --from=client-builder /app/client/build ./public
+
+# Install server dependencies
+COPY ./server/package*.json ./
+RUN npm ci --legacy-peer-deps --production
+
+# Expose the container's port
+EXPOSE 3000
+
+# Define the command to run the server
+CMD ["node", "server/build/index.ts"]
